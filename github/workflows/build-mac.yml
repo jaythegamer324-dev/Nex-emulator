@@ -1,0 +1,47 @@
+name: Build Mac DMG
+
+# Runs whenever you push to main (and you can also trigger it manually)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --frozen-lockfile
+
+      - name: Build React + copy electron.js into build/
+        working-directory: frontend
+        run: yarn build
+
+      - name: Build Mac DMG (unsigned)
+        working-directory: frontend
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: ./node_modules/.bin/electron-builder --mac --publish never
+
+      - name: Upload DMG as downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TheNexEmulator-Mac
+          path: |
+            frontend/dist/*.dmg
+            frontend/dist/*.zip
+          if-no-files-found: error
+          retention-days: 30
